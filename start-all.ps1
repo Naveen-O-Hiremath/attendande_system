@@ -130,14 +130,9 @@ if (-not $lanIp) {
     $lanIp = '127.0.0.1'
 }
 
-$studentConfigPath = Join-Path $studentAppPath 'src\config.ts'
-if (Test-Path $studentConfigPath) {
-    $configContent = Get-Content $studentConfigPath -Raw
-    if ($configContent -notmatch [regex]::Escape($lanIp)) {
-        Write-Warn "student-webapp/src/config.ts does not reference this machine's current LAN IP ($lanIp)."
-        Write-Warn '  Update API_ORIGIN there if a phone cannot reach the backend (no rebuild needed — Vite picks it up on save).'
-    }
-}
+# (No IP to sanity-check anymore — student-webapp/src/config.ts derives the
+# backend origin from window.location.hostname at runtime, so it works
+# unchanged regardless of this machine's IP.)
 
 # ---------------------------------------------------------------------------
 # 4. Start services (each in its own window; stop any previous instances first)

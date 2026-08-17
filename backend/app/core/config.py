@@ -19,12 +19,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://192.168.1.5:5174",
-    ]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
+    # Matches the admin portal / student webapp dev ports on localhost OR any
+    # LAN IP, so no machine-specific IP needs to be hardcoded here.
+    CORS_ORIGIN_REGEX: str = r"^http://((\d{1,3}\.){3}\d{1,3}|localhost):(3000|5173|5174)$"
 
 
 @lru_cache
