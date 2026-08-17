@@ -12,11 +12,13 @@ client — see §0 for why this replaced a native Android app).
 ## Quick start
 
 ```powershell
-.\start-all.ps1
+.\start-all.ps1          # Docker + migrations + backend + admin portal + student webapp
+.\run-mobile-web.ps1     # then, with a phone on USB: tunnels it to both, no Wi-Fi/firewall needed
 ```
 
-Starts Docker (Postgres+PostGIS, Redis), runs migrations, and launches the
-backend + admin portal + student webapp each in their own window. See §12 if
+`start-all.ps1` starts Docker (Postgres+PostGIS, Redis), runs migrations,
+and launches the backend + admin portal + student webapp each in their own
+window. See §12 if
 something doesn't come up.
 
 ---
@@ -134,14 +136,16 @@ REDIS_URL=redis://localhost:6379/0
 SECRET_KEY=change-me-in-production
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=30
-CORS_ORIGINS=["http://localhost:3000","http://localhost:5173","http://localhost:5174","http://192.168.1.5:5174"]
+CORS_ORIGINS=["http://localhost:3000","http://localhost:5173","http://localhost:5174"]
 ```
 
 - `SECRET_KEY` is a dev placeholder — **rotate before any real deployment**,
   it signs JWTs.
-- `CORS_ORIGINS` must include every origin a browser-based client is served
-  from — both the admin portal's and student webapp's ports/IPs are already
-  listed above.
+- `CORS_ORIGINS` covers exact `localhost` origins. On top of that,
+  `CORS_ORIGIN_REGEX` (set in `app/core/config.py`, not `.env`) matches
+  `http://<any-IP>:{3000,5173,5174}` so a phone reaching the student webapp
+  by LAN IP works without editing this file for every machine/network — see
+  §6.2. No IP is hardcoded anywhere in CORS config.
 - Face enrollment images are stored on local disk at `backend/uploads/`
   (gitignored) — a stand-in for S3-style object storage.
 - The InsightFace `buffalo_l` model (~280MB) downloads once to
@@ -200,7 +204,32 @@ picks it up live in dev mode.
 
 ---
 
-## 6. Connecting a phone to the student webapp (and the webapp to the backend)
+## 6. Connecting a phone to the student webapp
+
+Two ways to do this. **USB is the recommended default** — it has no
+failure modes involving Wi-Fi networks, firewalls, or IP addresses at all.
+
+### 6.1 USB + `adb reverse` (recommended)
+
+```powershell
+.\run-mobile-web.ps1
+```
+
+This tunnels the phone's own `localhost:8000` and `localhost:5174` straight
+to this machine over the USB cable (`adb reverse`) — the phone's network
+connection is never involved, so none of the LAN failure modes in §6.2 can
+happen. It requires: USB cable, "USB debugging" enabled in Developer
+options, and the on-device "Allow USB debugging?" prompt accepted once. It
+does **not** require MIUI's "Install via USB" toggle — that only blocks
+`adb install`, not `adb reverse`.
+
+Once it prints "Ready", open **`http://localhost:5174`** in the phone's
+Chrome. `student-webapp/src/config.ts` resolves `API_ORIGIN` from
+`window.location.hostname` at runtime, so loading the page as `localhost`
+makes it call the backend at `http://localhost:8000` automatically — which
+is exactly what's tunneled. No IP address appears anywhere in this flow.
+
+### 6.2 Same Wi-Fi network (fallback, if USB isn't available)
 
 1. **Find this machine's LAN IP**: `ipconfig` → the adapter actually bridged
    to your router. On this machine that's `vEthernet (Lab_Switch)` →
@@ -208,27 +237,26 @@ picks it up live in dev mode.
    external switch bridges the physical NIC instead).
 2. **Backend must bind `0.0.0.0`**, not `127.0.0.1` (§3.3 / default in
    `start-all.ps1`).
-3. **Open the Windows Firewall** for both ports (run as Administrator —
-   Claude Code cannot do this itself, no elevated shell access):
+3. **Firewall rules for ports 8000 and 5174** — `start-all.ps1` now creates
+   these itself (one UAC prompt, first run only; see §7). If you'd rather do
+   it manually:
    ```powershell
    New-NetFirewallRule -DisplayName "Attendance Backend" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
    New-NetFirewallRule -DisplayName "Attendance Student Webapp" -Direction Inbound -Protocol TCP -LocalPort 5174 -Action Allow
    ```
-   `start-all.ps1` checks for these on every run and prints the exact
-   command again if either is missing.
 4. **Phone must be on the same Wi-Fi network** as this machine — same
    router; guest networks / AP client-isolation will break this even on the
    "same" Wi-Fi (see §12).
-5. On the phone, open **`http://192.168.1.5:5174`** in Chrome. Bookmark it —
-   there's nothing to install.
-6. `student-webapp/src/config.ts`'s `API_ORIGIN` must match the backend's
-   LAN IP (already set to `192.168.1.5`).
+5. On the phone, open **`http://<this-machine's-LAN-IP>:5174`** in Chrome.
+   No config file needs editing — `config.ts` derives the backend origin
+   from whatever host loaded the page.
 
 ### Verify connectivity independent of the app
 
-On the phone's browser, visit `http://192.168.1.5:8000/health` — you should
-see `{"status":"ok"}`. If that fails, it's a network/firewall problem
-upstream of the webapp; fix that before debugging the app itself.
+On the phone's browser, visit `http://<host>:8000/health` (`localhost` for
+USB, the LAN IP for Wi-Fi) — you should see `{"status":"ok"}`. If that
+fails, it's a network problem upstream of the webapp; fix that before
+debugging the app itself.
 
 ---
 
@@ -243,9 +271,12 @@ upstream of the webapp; fix that before debugging the app itself.
 ```
 
 It's idempotent — re-running stops any previous uvicorn/vite instances it
-started before launching fresh ones, so ports never collide. It also warns
-if `student-webapp/src/config.ts`'s IP doesn't match the machine's current
-LAN IP, and if either firewall rule from §6 is missing.
+started before launching fresh ones, so ports never collide. It also
+self-heals the two firewall rules needed for §6.2 (Wi-Fi access): if either
+is missing, it triggers **one UAC prompt** to create them — approve it once
+and it never asks again on that machine. If you only ever use USB
+(`run-mobile-web.ps1`), you can ignore that prompt entirely; nothing else
+depends on those rules.
 
 ---
 
@@ -287,6 +318,7 @@ aren't portable across environments with different secrets.
 attendance_system/
 ├── SETUP.md                  ← this file
 ├── start-all.ps1              ← starts everything (see §7)
+├── run-mobile-web.ps1          ← USB adb-reverse tunnel for phone testing (see §6.1)
 ├── docker-compose.yml         ← Postgres+PostGIS, Redis, backend service
 ├── .gitignore
 ├── backend/
@@ -343,10 +375,11 @@ attendance_system/
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Phone can't reach the student webapp at all | Backend/webapp bound to `127.0.0.1` | Use `start-all.ps1` defaults (`0.0.0.0`) or pass `-Lan` explicitly |
-| Phone can't reach the student webapp | Windows Firewall blocking port 5174 or 8000 | Run the `New-NetFirewallRule` commands in §6 (needs an elevated PowerShell) |
-| Phone can't reach the student webapp | Phone and PC on different networks/subnets, or router has AP/client isolation | Confirm both devices' IPs share the same `/24` (e.g. both `192.168.1.x`); some guest Wi-Fi networks block device-to-device traffic — use the main network |
-| Webapp loads but API calls fail | PC's LAN IP changed since `config.ts` was set | Re-run `ipconfig`, update `student-webapp/src/config.ts`'s `API_ORIGIN` and `backend/.env`'s `CORS_ORIGINS` to match |
+| Phone can't reach the student webapp at all, any Wi-Fi troubleshooting is a hassle | LAN mode has too many moving parts (firewall, subnet, AP isolation) | **Switch to USB**: `.\run-mobile-web.ps1` — sidesteps all of the rows below entirely (see §6.1) |
+| Phone can't reach the student webapp (Wi-Fi mode) | Backend/webapp bound to `127.0.0.1` | Use `start-all.ps1` defaults (`0.0.0.0`) or pass `-Lan` explicitly |
+| Phone can't reach the student webapp (Wi-Fi mode) | Windows Firewall blocking port 5174 or 8000 | `start-all.ps1` now creates these rules itself (one UAC prompt) — re-run it; or run the `New-NetFirewallRule` commands in §6.2 manually |
+| Phone can't reach the student webapp (Wi-Fi mode) | Phone and PC on different networks/subnets, or router has AP/client isolation | Confirm both devices' IPs share the same `/24` (e.g. both `192.168.1.x`); some guest Wi-Fi networks block device-to-device traffic — or just use USB instead (§6.1) |
+| Webapp loads but API calls fail (Wi-Fi mode) | Shouldn't happen anymore — `config.ts` derives the backend origin from the page's own host at runtime | If it still does, check `backend/.env`'s `CORS_ORIGIN_REGEX` matches the origin shown in the browser's console error |
 | Admin portal shows a CORS error in the browser console | Portal's origin not in backend's `CORS_ORIGINS` | Add it to `backend/.env`, restart uvicorn |
 | Camera capture button does nothing on phone | Site opened over `http://` from a browser that requires a secure context for camera, or camera permission denied | Chrome allows camera on LAN-IP `http://` for local/private addresses; if blocked, check site permissions in Chrome settings |
 | Alembic autogenerate wants to drop `tiger`/`topology`/PostGIS tables | Those come from the `postgis/postgis` Docker image's bundled extensions | Already handled — `alembic/env.py`'s `include_object` filter ignores tables not in our own models |
