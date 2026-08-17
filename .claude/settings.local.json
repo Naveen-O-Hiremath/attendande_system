@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(psql --version)",
+      "Bash(pip --version)",
+      "Bash(where uv *)",
+      "Bash(python -m venv .venv)",
+      "Bash(../.venv/Scripts/python.exe *)",
+      "Bash(docker exec attendance_system-db-1 *)",
+      "Bash(dart run *)",
+      "Bash(flutter analyze *)",
+      "Bash(cp \"/c/Users/Expert/Downloads/appimg.png\" /c/projects/attendance_system/admin-portal/src/assets/app-icon.png)",
+      "Bash(cp \"/c/Users/Expert/Downloads/appimg.png\" /c/projects/attendance_system/admin-portal/public/favicon.png)"
+    ]
+  }
+}

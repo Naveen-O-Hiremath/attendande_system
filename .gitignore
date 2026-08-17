@@ -1,0 +1,42 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (admin portal / future)
+node_modules/
+dist/
+build/
+
+# Android (future)
+*.apk
+*.aab
+.gradle/
+local.properties
+
+db_data/
+
+# Backend-uploaded biometric data — never commit
+backend/uploads/
+
+# Flutter/Android build output
+mobile/build/
+mobile/.dart_tool/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/**/*.iml
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies

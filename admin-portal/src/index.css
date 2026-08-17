@@ -1,0 +1,451 @@
+:root {
+  --purple: #512364;
+  --purple-light: #f2eaf5;
+  --teal: #2e9297;
+  --teal-light: #e6f3f3;
+  --gold: #d2af6b;
+  --gray-50: #f9fafb;
+  --gray-100: #f1f2f4;
+  --gray-200: #e3e5e8;
+  --gray-500: #6b7280;
+  --gray-700: #374151;
+  --gray-900: #111827;
+  --red: #dc2626;
+  --red-light: #fdecec;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.centered-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--purple);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Login */
+.login-card {
+  width: 380px;
+  background: white;
+  border-radius: 16px;
+  padding: 40px 32px;
+  box-shadow: 0 10px 40px rgba(81, 35, 100, 0.12);
+}
+
+.login-icon {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  border-radius: 18px;
+}
+
+.login-title {
+  text-align: center;
+  color: var(--purple);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.login-subtitle {
+  text-align: center;
+  color: var(--gray-500);
+  font-size: 14px;
+  margin: 4px 0 24px;
+}
+
+/* Form elements */
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='password'] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 16px;
+  background: var(--gray-50);
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--purple);
+  background: white;
+}
+
+button.primary {
+  width: 100%;
+  padding: 11px;
+  background: var(--purple);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #3f1b50;
+}
+
+.error-text {
+  color: var(--red);
+  font-size: 13px;
+  text-align: center;
+  margin: -4px 0 16px;
+}
+
+/* App shell */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  background: var(--purple);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 24px;
+}
+
+.sidebar-brand img {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+
+.sidebar-brand span {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.sidebar nav a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+}
+
+.sidebar nav a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.sidebar nav a.active {
+  background: rgba(255, 255, 255, 0.14);
+  border-left-color: var(--gold);
+  color: white;
+}
+
+.sidebar-footer {
+  padding: 12px 20px 0;
+}
+
+.sidebar-footer button {
+  width: 100%;
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sidebar-footer button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.main-content {
+  flex: 1;
+  padding: 32px 40px;
+  max-width: 1100px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  color: var(--gray-500);
+  font-size: 14px;
+  margin: 0 0 28px;
+}
+
+/* Stat cards */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  padding: 20px;
+}
+
+.stat-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--purple);
+}
+
+.stat-card .label {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-top: 4px;
+}
+
+/* Tables & lists */
+.card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  overflow: hidden;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-bar button {
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--gray-200);
+  background: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--gray-700);
+}
+
+.filter-bar button.active {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: white;
+}
+
+.enrollment-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.enrollment-row:last-child {
+  border-bottom: none;
+}
+
+.enrollment-images {
+  display: flex;
+  gap: 6px;
+}
+
+.enrollment-images img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-100);
+}
+
+.enrollment-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.enrollment-meta .id {
+  font-size: 12px;
+  color: var(--gray-500);
+  font-family: monospace;
+}
+
+.enrollment-meta .date {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge.approved {
+  background: var(--teal-light);
+  color: var(--teal);
+}
+
+.badge.rejected {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+.badge.resubmission_requested {
+  background: var(--purple-light);
+  color: var(--purple);
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.row-actions button {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.row-actions button.approve {
+  background: var(--teal);
+  color: white;
+}
+
+.row-actions button.reject {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+.row-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.empty-state {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--gray-500);
+  font-size: 14px;
+}
+
+/* Reject modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 380px;
+}
+
+.modal h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.modal textarea {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-actions button.secondary {
+  background: var(--gray-100);
+  color: var(--gray-700);
+  border: none;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
