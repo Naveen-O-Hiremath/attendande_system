@@ -7,40 +7,40 @@
   1. Ensures Docker Desktop is running, then brings up Postgres+PostGIS and Redis.
   2. Waits for Postgres to report healthy, enables the PostGIS extension (idempotent).
   3. Runs Alembic migrations against the backend's venv.
-  4. Detects this machine's LAN IP (for the mobile app / phone-over-Wi-Fi case)
-     and warns if mobile/lib/config.dart is pointing somewhere else.
-  5. Starts the backend (uvicorn), the admin portal (vite dev server), and —
-     if a built APK exists — a small HTTP server to sideload it, each in its
-     own visible PowerShell window.
+  4. Detects this machine's LAN IP (for the student webapp / phone-over-Wi-Fi
+     case) and warns if student-webapp/src/config.ts is pointing somewhere else.
+  5. Starts the backend (uvicorn), the admin portal (vite dev server), and the
+     student webapp (vite dev server, LAN-bound so a phone can open it),
+     each in its own visible PowerShell window.
   6. Prints a summary of every URL/port in use, and flags missing firewall
      rules (it cannot create them itself — no elevated shell).
 
-  Safe to re-run: it stops any previous uvicorn/vite/apk-server instances it
-  started before launching fresh ones, so ports don't collide.
+  Safe to re-run: it stops any previous uvicorn/vite instances it started
+  before launching fresh ones, so ports don't collide.
 
 .PARAMETER Lan
   Bind the backend to 0.0.0.0 so phones on the same Wi-Fi can reach it.
-  Default: on. Use -Lan:$false for a laptop-only / no-mobile-testing session
+  Default: on. Use -Lan:$false for a laptop-only / no-phone-testing session
   (binds 127.0.0.1 instead).
 
 .PARAMETER NoPortal
   Skip starting the admin portal dev server.
 
-.PARAMETER NoApk
-  Skip starting the APK download server even if a built APK exists.
+.PARAMETER NoStudentApp
+  Skip starting the student webapp dev server.
 
 .PARAMETER NoBackend
   Skip starting the backend API (e.g. if it's already running elsewhere).
 
 .EXAMPLE
   .\start-all.ps1
-  .\start-all.ps1 -Lan:$false -NoApk
+  .\start-all.ps1 -Lan:$false -NoStudentApp
 #>
 
 param(
     [switch]$Lan = $true,
     [switch]$NoPortal,
-    [switch]$NoApk,
+    [switch]$NoStudentApp,
     [switch]$NoBackend
 )
 
@@ -48,7 +48,7 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $backendPath = Join-Path $root 'backend'
 $portalPath = Join-Path $root 'admin-portal'
-$apkPath = Join-Path $root 'apk_release'
+$studentAppPath = Join-Path $root 'student-webapp'
 $venvPython = Join-Path $root '.venv\Scripts\python.exe'
 $dbContainer = 'attendance_system-db-1'
 
@@ -122,7 +122,7 @@ Pop-Location
 Write-Ok 'Migrations up to date.'
 
 # ---------------------------------------------------------------------------
-# 3. Detect environment (LAN IP) and sanity-check mobile config
+# 3. Detect environment (LAN IP) and sanity-check the student webapp's config
 # ---------------------------------------------------------------------------
 $lanIp = Get-LanIp
 if (-not $lanIp) {
@@ -130,21 +130,29 @@ if (-not $lanIp) {
     $lanIp = '127.0.0.1'
 }
 
-$configDartPath = Join-Path $root 'mobile\lib\config.dart'
-if (Test-Path $configDartPath) {
-    $configContent = Get-Content $configDartPath -Raw
+$studentConfigPath = Join-Path $studentAppPath 'src\config.ts'
+if (Test-Path $studentConfigPath) {
+    $configContent = Get-Content $studentConfigPath -Raw
     if ($configContent -notmatch [regex]::Escape($lanIp)) {
-        Write-Warn "mobile/lib/config.dart does not reference this machine's current LAN IP ($lanIp)."
-        Write-Warn '  Update apiBaseUrl there and run "flutter build apk --debug" again if the mobile app cannot connect.'
+        Write-Warn "student-webapp/src/config.ts does not reference this machine's current LAN IP ($lanIp)."
+        Write-Warn '  Update API_ORIGIN there if a phone cannot reach the backend (no rebuild needed — Vite picks it up on save).'
     }
 }
 
 # ---------------------------------------------------------------------------
-# 4. Start services (each in its own window; stop any previous instance first)
+# 4. Start services (each in its own window; stop any previous instances first)
 # ---------------------------------------------------------------------------
 if (-not $NoBackend) {
-    Write-Step 'Starting backend API'
     Stop-MatchingProcess 'uvicorn app\.main:app' 'backend (uvicorn)'
+}
+if (-not $NoPortal -or -not $NoStudentApp) {
+    # One combined sweep: killing per-app risks a later kill catching the
+    # app just started earlier in this same run (both are "vite").
+    Stop-MatchingProcess 'vite' 'vite dev server'
+}
+
+if (-not $NoBackend) {
+    Write-Step 'Starting backend API'
     $bindHost = if ($Lan) { '0.0.0.0' } else { '127.0.0.1' }
     Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$backendPath'; & '$venvPython' -m uvicorn app.main:app --host $bindHost --port 8000"
     Write-Ok "Backend starting — bind $bindHost, reachable at http://$($lanIp):8000"
@@ -153,7 +161,6 @@ if (-not $NoBackend) {
 if (-not $NoPortal) {
     Write-Step 'Starting admin portal'
     if (Test-Path (Join-Path $portalPath 'node_modules')) {
-        Stop-MatchingProcess 'vite' 'admin portal (vite)'
         Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$portalPath'; npm run dev"
         Write-Ok 'Admin portal starting at http://localhost:5173'
     } else {
@@ -161,38 +168,41 @@ if (-not $NoPortal) {
     }
 }
 
-if (-not $NoApk) {
-    $apkFile = Join-Path $apkPath 'attendance-app.apk'
-    if (Test-Path $apkFile) {
-        Write-Step 'Starting APK download server'
-        Stop-MatchingProcess 'http\.server 8090' 'APK download server'
-        Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$apkPath'; & '$venvPython' -m http.server 8090 --bind 0.0.0.0"
-        Write-Ok "APK available at http://$($lanIp):8090/attendance-app.apk"
+if (-not $NoStudentApp) {
+    Write-Step 'Starting student webapp'
+    if (Test-Path (Join-Path $studentAppPath 'node_modules')) {
+        Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$studentAppPath'; npm run dev"
+        Write-Ok "Student webapp starting — reachable on this PC at http://localhost:5174 and on the phone at http://$($lanIp):5174"
+    } else {
+        Write-Warn 'student-webapp/node_modules not found — run "npm install" in student-webapp/ first. Skipping.'
     }
 }
 
 # ---------------------------------------------------------------------------
 # 5. Firewall reminder (cannot self-elevate to fix this)
 # ---------------------------------------------------------------------------
+$requiredRules = @{
+    'Attendance Backend'       = 8000
+    'Attendance Student Webapp' = 5174
+}
 $missingRules = @()
-foreach ($name in @('Attendance Backend', 'Attendance APK Server')) {
+foreach ($name in $requiredRules.Keys) {
     if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) { $missingRules += $name }
 }
 if ($missingRules.Count -gt 0) {
-    Write-Warn "`nMissing firewall rules: $($missingRules -join ', '). Phones on Wi-Fi won't reach these services until you run (as Administrator):"
-    Write-Host '  New-NetFirewallRule -DisplayName "Attendance Backend" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow'
-    Write-Host '  New-NetFirewallRule -DisplayName "Attendance APK Server" -Direction Inbound -Protocol TCP -LocalPort 8090 -Action Allow'
+    Write-Warn "`nMissing firewall rules: $($missingRules -join ', '). Your phone won't reach these services until you run (as Administrator):"
+    foreach ($name in $missingRules) {
+        Write-Host "  New-NetFirewallRule -DisplayName `"$name`" -Direction Inbound -Protocol TCP -LocalPort $($requiredRules[$name]) -Action Allow"
+    }
 }
 
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 Write-Step 'All set'
-Write-Host "Backend API:    http://$($lanIp):8000  (docs: http://localhost:8000/docs)"
-Write-Host 'Admin portal:   http://localhost:5173'
-if (-not $NoApk -and (Test-Path (Join-Path $apkPath 'attendance-app.apk'))) {
-    Write-Host "APK download:   http://$($lanIp):8090/attendance-app.apk"
-}
-Write-Host 'Postgres:       localhost:5432  (db/user/pass: attendance/attendance/attendance)'
-Write-Host 'Redis:          localhost:6379'
+Write-Host "Backend API:      http://$($lanIp):8000  (docs: http://localhost:8000/docs)"
+Write-Host 'Admin portal:     http://localhost:5173  (desktop browser only)'
+Write-Host "Student webapp:   http://$($lanIp):5174  (open this on the phone's browser, same Wi-Fi)"
+Write-Host 'Postgres:         localhost:5432  (db/user/pass: attendance/attendance/attendance)'
+Write-Host 'Redis:            localhost:6379'
 Write-Host "`nSee SETUP.md for credentials, troubleshooting, and full details."
