@@ -174,21 +174,41 @@ if (-not $NoStudentApp) {
 }
 
 # ---------------------------------------------------------------------------
-# 5. Firewall reminder (cannot self-elevate to fix this)
+# 5. Firewall self-heal — this is what actually makes "can't reach server"
+#    permanently go away. A missing rule here silently blocks the phone at
+#    the network layer no matter how correct the app/CORS config is, and
+#    that's exactly the failure this project kept hitting. Rules persist
+#    once created, so this UAC prompt should only ever appear once per
+#    machine.
 # ---------------------------------------------------------------------------
 $requiredRules = @{
-    'Attendance Backend'       = 8000
+    'Attendance Backend'        = 8000
     'Attendance Student Webapp' = 5174
 }
-$missingRules = @()
-foreach ($name in $requiredRules.Keys) {
-    if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) { $missingRules += $name }
-}
+$missingRules = @($requiredRules.Keys | Where-Object { -not (Get-NetFirewallRule -DisplayName $_ -ErrorAction SilentlyContinue) })
+
 if ($missingRules.Count -gt 0) {
-    Write-Warn "`nMissing firewall rules: $($missingRules -join ', '). Your phone won't reach these services until you run (as Administrator):"
-    foreach ($name in $missingRules) {
-        Write-Host "  New-NetFirewallRule -DisplayName `"$name`" -Direction Inbound -Protocol TCP -LocalPort $($requiredRules[$name]) -Action Allow"
+    Write-Step "Creating $($missingRules.Count) missing firewall rule(s) — approve the admin prompt"
+    $cmds = foreach ($name in $missingRules) {
+        "New-NetFirewallRule -DisplayName `"$name`" -Direction Inbound -Protocol TCP -LocalPort $($requiredRules[$name]) -Action Allow | Out-Null"
     }
+    try {
+        Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command', ($cmds -join '; ') -Wait -ErrorAction Stop
+    } catch {
+        Write-Warn 'Elevation was cancelled or failed. Run this yourself in an Administrator PowerShell:'
+        foreach ($name in $missingRules) {
+            Write-Host "  New-NetFirewallRule -DisplayName `"$name`" -Direction Inbound -Protocol TCP -LocalPort $($requiredRules[$name]) -Action Allow"
+        }
+    }
+
+    $stillMissing = @($requiredRules.Keys | Where-Object { -not (Get-NetFirewallRule -DisplayName $_ -ErrorAction SilentlyContinue) })
+    if ($stillMissing.Count -eq 0) {
+        Write-Ok 'Firewall rules created. This will not need approval again on this machine.'
+    } else {
+        Write-Warn "Still missing: $($stillMissing -join ', ') — the phone will not be able to connect until these exist."
+    }
+} else {
+    Write-Ok 'Firewall rules already in place.'
 }
 
 # ---------------------------------------------------------------------------
