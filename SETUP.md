@@ -85,12 +85,16 @@ no Android cleartext-traffic policy to fight.
 
 ## 3. Backend setup
 
+The virtualenv lives at the **repo root** (`.venv/`), not inside `backend/`
+— `start-all.ps1` expects it there.
+
 ```bash
-cd backend
 python -m venv .venv
 .venv\Scripts\activate              # Windows
-pip install -r requirements.txt
+pip install -r backend\requirements.txt
+cd backend
 cp .env.example .env                # already done in this repo; edit if needed
+cd ..
 ```
 
 ### 3.1 Start Postgres + Redis
@@ -195,12 +199,12 @@ matched/needs-review/no-match with the similarity score).
 ### Configuration (`student-webapp/src/config.ts`)
 
 ```ts
-export const API_ORIGIN = 'http://192.168.1.5:8000';
+export const API_ORIGIN = `http://${window.location.hostname}:8000`;
 ```
 
-**Hardcoded to this machine's current LAN IP.** If it changes (different
-network, DHCP renewal), update this constant — no rebuild needed, Vite
-picks it up live in dev mode.
+**Not hardcoded** — derived at runtime from whatever host the browser used
+to load the page. Works unchanged as `localhost` (USB tunnel, §6.1) or any
+LAN IP (Wi-Fi, §6.2), on any machine, with no editing required.
 
 ---
 
@@ -303,10 +307,10 @@ aren't portable across environments with different secrets.
 
 | Service | URL | Notes |
 |---|---|---|
-| Backend API | `http://192.168.1.5:8000` / `http://localhost:8000` | bind `0.0.0.0` for phone access |
+| Backend API | `http://localhost:8000` / `http://<LAN-IP>:8000` | bind `0.0.0.0` for phone access |
 | API docs (Swagger) | `http://localhost:8000/docs` | |
 | Admin portal | `http://localhost:5173` | desktop only |
-| Student webapp | `http://192.168.1.5:5174` / `http://localhost:5174` | open on the phone |
+| Student webapp | `http://localhost:5174` / `http://<LAN-IP>:5174` | open on the phone |
 | Postgres | `localhost:5432` | user/pass/db: `attendance`/`attendance`/`attendance` |
 | Redis | `localhost:6379` | provisioned, not yet used by any feature |
 
