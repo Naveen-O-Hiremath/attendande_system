@@ -25,7 +25,17 @@ function extractErrorMessage(payload: unknown): string {
 
 async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Non-JSON body (e.g. a bare 500 from an unhandled server error) — surface
+      // it as a real ApiError instead of letting the parse failure look like a
+      // network/connectivity problem to the caller.
+      throw new ApiError(response.status, `Server error (${response.status}). Please try again.`);
+    }
+  }
   if (!response.ok) {
     throw new ApiError(response.status, extractErrorMessage(data));
   }

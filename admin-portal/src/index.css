@@ -107,6 +107,15 @@ input:focus {
   background: white;
 }
 
+select {
+  padding: 9px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  color: var(--gray-900);
+}
+
 button.primary {
   width: 100%;
   padding: 11px;
@@ -389,6 +398,91 @@ button.primary:hover:not(:disabled) {
 .row-actions button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* Announcements page */
+.announcement-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 16px;
+  background: var(--gray-50);
+  resize: vertical;
+}
+
+.announcement-textarea:focus {
+  outline: none;
+  border-color: var(--purple);
+  background: white;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  color: var(--gray-500);
+  cursor: pointer;
+  font-weight: inherit;
+}
+
+.link-btn:hover {
+  color: var(--purple);
+}
+
+/* Classes page: create-class form + tables */
+.inline-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline-form input {
+  flex: 1;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 12px 20px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.data-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
+  background: var(--gray-50);
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table .id {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.data-table select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  font-size: 13px;
+  background: white;
 }
 
 .empty-state {

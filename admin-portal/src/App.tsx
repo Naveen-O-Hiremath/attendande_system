@@ -4,6 +4,9 @@ import { ProtectedRoute } from './auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EnrollmentsPage } from './pages/EnrollmentsPage';
+import { ClassesPage } from './pages/ClassesPage';
+import { AnnouncementsPage } from './pages/AnnouncementsPage';
+import { AttendancePage } from './pages/AttendancePage';
 
 export default function App() {
   return (
@@ -24,6 +27,30 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <EnrollmentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/classes"
+            element={
+              <ProtectedRoute>
+                <ClassesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/announcements"
+            element={
+              <ProtectedRoute>
+                <AnnouncementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/attendance"
+            element={
+              <ProtectedRoute>
+                <AttendancePage />
               </ProtectedRoute>
             }
           />

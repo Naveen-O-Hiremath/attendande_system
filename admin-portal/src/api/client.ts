@@ -1,4 +1,7 @@
-export const API_ORIGIN = 'http://localhost:8000';
+// 127.0.0.1, not "localhost" — on this machine "localhost" can resolve to
+// the IPv6 loopback first, which an unrelated container may also occupy on
+// port 8000. 127.0.0.1 is unambiguous IPv4 and always reaches this backend.
+export const API_ORIGIN = 'http://127.0.0.1:8000';
 export const API_BASE_URL = `${API_ORIGIN}/api/v1`;
 
 export class ApiError extends Error {
@@ -39,7 +42,17 @@ async function request<T>(
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Non-JSON body (e.g. a bare 500 from an unhandled server error) — surface
+      // it as a real ApiError instead of letting the parse failure look like a
+      // network/connectivity problem to the caller.
+      throw new ApiError(response.status, `Server error (${response.status}). Please try again.`);
+    }
+  }
 
   if (!response.ok) {
     throw new ApiError(response.status, extractErrorMessage(data));
@@ -51,7 +64,28 @@ export const api = {
   get: <T>(path: string, token?: string | null) => request<T>(path, { method: 'GET', token }),
   post: <T>(path: string, body?: unknown, token?: string | null) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined, token }),
+  patch: <T>(path: string, body?: unknown, token?: string | null) =>
+    request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined, token }),
+  del: <T>(path: string, token?: string | null) => request<T>(path, { method: 'DELETE', token }),
 };
+
+/** Downloads an authenticated endpoint's response as a file, triggered entirely client-side
+ * (a plain <a href> can't carry an Authorization header, so this fetches as a blob instead). */
+export async function downloadAuthorized(path: string, token: string, filename: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new ApiError(response.status, 'Download failed');
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 /** `path` is a stored image URL, which already includes the /api/v1 prefix. */
 export async function fetchAuthorizedBlobUrl(path: string, token: string): Promise<string> {

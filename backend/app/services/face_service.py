@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import threading
 
 import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
+
+logger = logging.getLogger(__name__)
 
 # Cosine similarity thresholds for ArcFace-style normalized embeddings.
 # Below REVIEW_THRESHOLD: reject outright. Between REVIEW_THRESHOLD and
@@ -14,7 +17,15 @@ MATCH_THRESHOLD = 0.42
 REVIEW_THRESHOLD = 0.32
 
 MIN_FACE_RATIO = 0.15  # face bbox must occupy at least this fraction of the shorter frame dimension
-MIN_BLUR_SCORE = 60.0  # variance of Laplacian; below this, image is considered too blurry
+
+# Variance of Laplacian on the face crop only (not the full frame — a smooth
+# background inflates whole-frame variance independent of face sharpness).
+# Calibrated against real webcam captures: artificially-blurred frames
+# scored 3-6, legitimately sharp frames scored 35-320. Set well clear of
+# the blurry range so phone cameras (which apply noise reduction / "beauty"
+# smoothing that a laptop webcam doesn't) aren't false-rejected — see the
+# blur_score logged on every submission for real-world numbers.
+MIN_BLUR_SCORE = 10.0
 
 
 class FaceQualityError(Exception):
@@ -75,9 +86,25 @@ class FaceService:
         if min(face_w / width, face_h / height) < MIN_FACE_RATIO:
             raise FaceQualityError("Your face is too small in the frame. Move closer to the camera.")
 
-        blur_score = self._blur_score(img)
+        # Blur is measured on the face crop only, not the full frame — a
+        # smooth/plain background (very common in phone selfies) drags a
+        # whole-frame Laplacian variance down even when the face itself is
+        # perfectly sharp, causing false "too blurry" rejections.
+        cx1 = max(0, int(x1))
+        cy1 = max(0, int(y1))
+        cx2 = min(width, int(x2))
+        cy2 = min(height, int(y2))
+        face_crop = img[cy1:cy2, cx1:cx2]
+        blur_score = self._blur_score(face_crop) if face_crop.size else 0.0
+        logger.info(
+            "face quality: image=%dx%d det_score=%.3f blur_score=%.1f (min=%.1f)",
+            width, height, face.det_score, blur_score, MIN_BLUR_SCORE,
+        )
         if blur_score < MIN_BLUR_SCORE:
-            raise FaceQualityError("Image is too blurry. Hold the camera steady and retake.")
+            raise FaceQualityError(
+                f"Image is too blurry (score {blur_score:.1f}, need at least {MIN_BLUR_SCORE:.0f}). "
+                "Hold the camera steady and retake."
+            )
 
         return {
             "embedding": face.normed_embedding.astype(float).tolist(),

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,8 +19,15 @@ class Announcement(Base, UUIDMixin, TimestampMixin):
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    author: Mapped["User"] = relationship(foreign_keys=[created_by])
     attachments: Mapped[list["AnnouncementAttachment"]] = relationship(
         back_populates="announcement", cascade="all, delete-orphan"
+    )
+    likes: Mapped[list["AnnouncementLike"]] = relationship(
+        back_populates="announcement", cascade="all, delete-orphan"
+    )
+    comments: Mapped[list["AnnouncementComment"]] = relationship(
+        back_populates="announcement", cascade="all, delete-orphan", order_by="AnnouncementComment.created_at"
     )
 
 
@@ -34,3 +41,32 @@ class AnnouncementAttachment(Base, UUIDMixin, TimestampMixin):
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     announcement: Mapped["Announcement"] = relationship(back_populates="attachments")
+
+
+class AnnouncementLike(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "announcement_likes"
+    __table_args__ = (UniqueConstraint("announcement_id", "user_id", name="uq_announcement_like_user"),)
+
+    announcement_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("announcements.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    announcement: Mapped["Announcement"] = relationship(back_populates="likes")
+
+
+class AnnouncementComment(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "announcement_comments"
+
+    announcement_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("announcements.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+
+    announcement: Mapped["Announcement"] = relationship(back_populates="comments")
+    user: Mapped["User"] = relationship()

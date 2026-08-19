@@ -20,6 +20,15 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/enrollments" className={({ isActive }) => (isActive ? 'active' : '')}>
             Face Enrollments
           </NavLink>
+          <NavLink to="/classes" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Classes
+          </NavLink>
+          <NavLink to="/attendance" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Attendance
+          </NavLink>
+          <NavLink to="/announcements" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Announcements
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, margin: '0 0 8px' }}>

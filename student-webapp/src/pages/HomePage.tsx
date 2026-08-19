@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/TopBar';
+import { AnnouncementFeed } from '../components/AnnouncementFeed';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api/client';
 import type { FaceEnrollment } from '../api/types';
@@ -84,6 +85,8 @@ export function HomePage() {
             )}
           </div>
         )}
+
+        <AnnouncementFeed />
       </div>
     </div>
   );

@@ -22,6 +22,27 @@ export interface FaceEnrollment {
   created_at: string;
 }
 
+export interface AnnouncementComment {
+  id: string;
+  user_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  created_by: string;
+  author_name: string;
+  created_at: string;
+  like_count: number;
+  comment_count: number;
+  liked_by_me: boolean;
+  comments: AnnouncementComment[];
+}
+
 export interface FaceMatchResult {
   matched: boolean;
   needs_review: boolean;

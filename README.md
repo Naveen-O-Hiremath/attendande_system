@@ -268,6 +268,11 @@ only on approval) → live attendance matching against the approved
 embedding, with borderline matches flagged for review instead of
 auto-accepted.
 
+A matched face only records attendance once the student is assigned to a
+class — admin portal → **Classes** lets you create classes and assign each
+student to one (`POST/GET /api/v1/classes`, `GET /api/v1/users/students`,
+`PATCH /api/v1/users/{id}/class`).
+
 Not yet built: schedules, geo-fencing, leave management, announcements,
 chat, assignments — see [SETUP.md §13](SETUP.md#13-known-gaps--next-steps).
 

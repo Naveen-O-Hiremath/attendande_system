@@ -1,5 +1,10 @@
 from app.models.academic import ClassSchedule, Holiday, SchoolClass, Term
-from app.models.announcement import Announcement, AnnouncementAttachment
+from app.models.announcement import (
+    Announcement,
+    AnnouncementAttachment,
+    AnnouncementComment,
+    AnnouncementLike,
+)
 from app.models.assignment import Assignment, AssignmentAttachment, Submission
 from app.models.attendance import AttendanceRecord
 from app.models.audit import AuditLog
@@ -22,6 +27,8 @@ __all__ = [
     "LeaveRequest",
     "Announcement",
     "AnnouncementAttachment",
+    "AnnouncementLike",
+    "AnnouncementComment",
     "ChatGroup",
     "ChatGroupMember",
     "ChatMessage",
