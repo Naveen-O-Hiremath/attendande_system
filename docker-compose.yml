@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U attendance"]
       interval: 5s
@@ -21,24 +22,53 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build: ./backend
     restart: unless-stopped
-    env_file:
-      - ./backend/.env
+    # Everything the app needs to run is set right here — no .env file
+    # required. backend/.env, if present, is only for the non-Docker
+    # (venv) dev workflow; Docker Compose env vars below always win.
     environment:
+      ENVIRONMENT: development
       DATABASE_URL: postgresql+asyncpg://attendance:attendance@db:5432/attendance
       REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: change-me-in-production
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      REFRESH_TOKEN_EXPIRE_DAYS: "30"
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:5174"]'
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./backend:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  admin-portal:
+    build: ./admin-portal
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+
+  student-webapp:
+    build: ./student-webapp
+    restart: unless-stopped
+    ports:
+      - "5174:80"
 
 volumes:
   db_data:

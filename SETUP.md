@@ -5,21 +5,30 @@ API**, the **admin portal**, and the **student webapp** (the phone-facing
 client — see §0 for why this replaced a native Android app).
 
 > This is milestone 1–2 of the full project brief: auth, RBAC, the full DB
-> schema, and the face-enrollment/approval/attendance-matching pipeline.
-> Schedule/geo-fence config, leave management, announcements, chat, and
-> assignments are not built yet.
+> schema, the face-enrollment/approval/attendance-matching pipeline, classes,
+> announcements (with likes/comments), and attendance tracking/CSV export.
+> Schedule/geo-fence config, leave management, and chat are not built yet.
 
 ## Quick start
 
+**On a machine that's never run this project before — Docker, zero manual
+setup:**
 ```powershell
-.\start-all.ps1          # Docker + migrations + backend + admin portal + student webapp
+.\docker-up.ps1          # builds + starts db, redis, backend, admin portal, student webapp
 .\run-mobile-web.ps1     # then, with a phone on USB: tunnels it to both, no Wi-Fi/firewall needed
 ```
+Everything — Python deps, the face-recognition model, Node build tooling,
+migrations, PostGIS setup, and the default admin account — happens
+automatically inside the containers. See [README.md §3](README.md#3-why-docker-is-the-recommended-path)
+for why this is the recommended path, and §12 below if something doesn't
+come up.
 
-`start-all.ps1` starts Docker (Postgres+PostGIS, Redis), runs migrations,
-and launches the backend + admin portal + student webapp each in their own
-window. See §12 if
-something doesn't come up.
+**Already have Python/Node set up locally and want hot reload while
+developing:**
+```powershell
+.\start-all.ps1          # Docker (db+redis only) + migrations + backend + admin portal + student webapp
+.\run-mobile-web.ps1     # then, with a phone on USB: tunnels it to both, no Wi-Fi/firewall needed
+```
 
 ---
 
@@ -288,8 +297,11 @@ depends on those rules.
 
 | Email | Password | Role | Notes |
 |---|---|---|---|
-| `portaladmin@example.com` | `password123` | admin | Log into the **admin portal** with this |
-| `mobiletest@example.com` | `password123` | student | Test account, no face enrollment |
+| `portaladmin@example.com` | `password123` | admin | Log into the **admin portal** with this — created automatically by `app/seed.py` the first time the backend starts against an empty database, Docker or manual path alike. Idempotent: won't touch it if it already exists. |
+
+Any other accounts (e.g. `mobiletest@example.com`) are ones created ad hoc
+on a given machine's database — they won't exist on a fresh clone/fresh
+database elsewhere.
 
 To create more admin accounts (no user-management UI yet):
 ```bash
@@ -321,37 +333,46 @@ aren't portable across environments with different secrets.
 ```
 attendance_system/
 ├── SETUP.md                  ← this file
-├── start-all.ps1              ← starts everything (see §7)
-├── run-mobile-web.ps1          ← USB adb-reverse tunnel for phone testing (see §6.1)
-├── docker-compose.yml         ← Postgres+PostGIS, Redis, backend service
+├── docker-up.ps1               ← builds + starts everything in Docker (recommended, see Quick start)
+├── docker-down.ps1              ← stops it
+├── start-all.ps1                  ← manual-path alternative (see §7)
+├── run-mobile-web.ps1               ← USB adb-reverse tunnel for phone testing (see §6.1)
+├── docker-compose.yml              ← db, redis, backend, admin-portal, student-webapp
+├── db-init/01-postgis.sql            ← auto-enables PostGIS on first DB boot
 ├── .gitignore
 ├── backend/
+│   ├── Dockerfile               builds the backend image; bakes in the face model at build time
+│   ├── docker_entrypoint.py      container startup: wait for db → migrate → seed admin → serve
 │   ├── app/
-│   │   ├── main.py             FastAPI app entrypoint
-│   │   ├── core/                config.py, security.py (JWT), deps.py (RBAC)
-│   │   ├── models/               SQLAlchemy models (one file per domain)
-│   │   ├── schemas/              Pydantic request/response models
-│   │   ├── crud/                  DB query helpers
-│   │   ├── services/               face_service.py (InsightFace), storage.py
-│   │   └── api/v1/endpoints/       auth.py, users.py, face_enrollments.py
-│   ├── alembic/versions/           migrations
-│   ├── uploads/                     face enrollment images (gitignored)
+│   │   ├── main.py                 FastAPI app entrypoint
+│   │   ├── seed.py                  creates the default admin account (idempotent)
+│   │   ├── core/                     config.py, security.py (JWT), deps.py (RBAC)
+│   │   ├── models/                    SQLAlchemy models (one file per domain)
+│   │   ├── schemas/                    Pydantic request/response models
+│   │   ├── crud/                        DB query helpers
+│   │   ├── services/                     face_service.py (InsightFace), storage.py
+│   │   └── api/v1/endpoints/              auth, users, classes, face_enrollments, announcements, attendance
+│   ├── alembic/versions/                    migrations
+│   ├── uploads/                               face enrollment images (gitignored)
 │   ├── requirements.txt
-│   └── .env / .env.example
+│   └── .env / .env.example                     only used by the manual path — Docker path doesn't need it
 ├── admin-portal/
+│   ├── Dockerfile              multi-stage: Node build → nginx serving the static bundle
 │   └── src/
-│       ├── api/                     client.ts, types.ts
-│       ├── auth/                     AuthContext.tsx, ProtectedRoute.tsx
-│       ├── components/               Layout.tsx, AuthImage.tsx
-│       └── pages/                    LoginPage, DashboardPage, EnrollmentsPage
+│       ├── api/                  client.ts, types.ts
+│       ├── auth/                  AuthContext.tsx, ProtectedRoute.tsx
+│       ├── components/             Layout.tsx, AuthImage.tsx
+│       └── pages/                  LoginPage, DashboardPage, EnrollmentsPage, ClassesPage,
+│                                    AnnouncementsPage, AttendancePage
 ├── student-webapp/
+│   ├── Dockerfile              same multi-stage pattern
 │   └── src/
-│       ├── config.ts                 ← API_ORIGIN (LAN IP)
-│       ├── api/                       client.ts, types.ts
-│       ├── auth/                       AuthContext.tsx, ProtectedRoute.tsx
-│       ├── components/                 TopBar.tsx
-│       └── pages/                      LoginPage, RegisterPage, HomePage,
-│                                        EnrollPage, AttendancePage
+│       ├── config.ts             ← derives API_ORIGIN from window.location.hostname at runtime
+│       ├── api/                   client.ts, types.ts
+│       ├── auth/                   AuthContext.tsx, ProtectedRoute.tsx
+│       ├── components/              TopBar.tsx, AnnouncementFeed.tsx
+│       └── pages/                   LoginPage, RegisterPage, HomePage,
+│                                     EnrollPage, AttendancePage
 └── mobile/                    ← earlier Flutter attempt, kept for reference, not run
 ```
 
@@ -387,9 +408,12 @@ attendance_system/
 | Admin portal shows a CORS error in the browser console | Portal's origin not in backend's `CORS_ORIGINS` | Add it to `backend/.env`, restart uvicorn |
 | Camera capture button does nothing on phone | Site opened over `http://` from a browser that requires a secure context for camera, or camera permission denied | Chrome allows camera on LAN-IP `http://` for local/private addresses; if blocked, check site permissions in Chrome settings |
 | Alembic autogenerate wants to drop `tiger`/`topology`/PostGIS tables | Those come from the `postgis/postgis` Docker image's bundled extensions | Already handled — `alembic/env.py`'s `include_object` filter ignores tables not in our own models |
-| `insightface`/`onnxruntime` import errors | Dependencies not installed in the venv | `pip install -r backend/requirements.txt` (pinned versions confirmed working on Python 3.13) |
-| First face-enrollment request is slow (~1 min) | InsightFace downloading the `buffalo_l` model (~280MB) on first use | One-time; cached afterward at `~/.insightface/models/buffalo_l/` |
-| `start-all.ps1` fails at "Backend virtualenv not found" | Backend never set up | Follow §3 first |
+| `insightface`/`onnxruntime` import errors (manual path) | Dependencies not installed in the venv | `pip install -r backend/requirements.txt` (pinned versions confirmed working on Python 3.13) |
+| First face-enrollment request is slow (~1 min, manual path) | InsightFace downloading the `buffalo_l` model (~280MB) on first use | One-time; cached afterward at `~/.insightface/models/buffalo_l/`. The Docker path doesn't have this at all — the model is baked into the image at build time. |
+| `start-all.ps1` fails at "Backend virtualenv not found" | Backend never set up | Follow §3 first, or just use `.\docker-up.ps1` instead — no venv needed |
+| `docker-up.ps1` / `docker compose up --build` fails on the backend with `ImportError: libGL.so.1` | insightface pulls in full `opencv-python` (not just our pinned `opencv-python-headless`) as a transitive dependency | Already handled — `backend/Dockerfile` installs `libgl1` and friends. If you still hit this after editing the Dockerfile yourself, rebuild with `.\docker-up.ps1 -Rebuild` |
+| Anything in Docker won't start / behaves oddly | Any container-level failure | `docker compose logs -f` (or `logs -f <service>`) — the backend's `docker_entrypoint.py` prints exactly which step it's stuck on (waiting for db / migrating / seeding / serving) |
+| Docker build is very slow the first time | Expected — pip installing onnxruntime/opencv/insightface, two `npm ci`+`vite build` runs, and downloading the face model all happen once | Every build after the first reuses Docker's layer cache and is fast, unless `requirements.txt`/`package.json` changed |
 
 ---
 
@@ -397,10 +421,11 @@ attendance_system/
 
 - No password-reset / forgot-password flow.
 - No admin UI for creating other admin/teacher accounts (SQL workaround in §8).
-- Schedule, geo-fence, leave management, announcements, chat, and
-  assignments are not built (see the original project brief, milestones 3–6).
-- `SECRET_KEY`, DB password, and other dev defaults must be changed before
-  any real deployment.
+- Schedule, geo-fence, leave management, chat, and assignments are not
+  built (see the original project brief, milestones 3–6).
+- `SECRET_KEY`, DB password, and other dev defaults (hardcoded directly in
+  `docker-compose.yml` for the Docker path, `.env.example` for the manual
+  path) must be changed before any real deployment.
 - The student webapp's camera capture (`<input capture="user">`) opens the
   phone's native camera app rather than an in-page live preview — simpler
   and more reliable across browsers, but less polished than a custom
